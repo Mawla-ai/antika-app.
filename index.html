@@ -2,13 +2,16 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Antika - لأن البعد لا يفرق بين القلوب</title>
   
-  <!-- Web Manifest & Theme -->
+  <!-- Web Manifest & Standalone Fullscreen Config -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b0e14">
-  <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" type="image/png" href="assets/logo_192.png">
   
   <!-- Stylesheets & Icons -->
   <link rel="stylesheet" href="css/style.css">
@@ -16,12 +19,11 @@
 </head>
 <body>
 
-  <!-- App Viewport Container -->
+  <!-- App Viewport Container (Centered Mobile Frame) -->
   <div id="app-viewport">
 
     <!-- =========================================================
          1. CAMOUFLAGE CLOCK SCREEN (AYA SCREEN)
-         Strict Requirement: Pure luxury clock with AYA monogram. No hints!
          ========================================================= -->
     <div id="camouflage-screen">
       <div class="clock-container" id="aya-clock-trigger">
@@ -79,17 +81,17 @@
     </div>
 
     <!-- =========================================================
-         3. ADD CONTACT & PAIRING MODAL (SINGLE-USE EXCLUSIVE CODE)
+         3. ADD PARTNER & PAIRING MODAL
          ========================================================= -->
     <div class="modal-backdrop" id="add-contact-modal">
       <div class="pairing-card">
-        <h3 style="color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 6px;">إضافة جهة اتصال / شريك</h3>
+        <h3 style="color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 6px;">اقتران وتسمية الشريك</h3>
         <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 16px;">
           رقم الدعوة الخاص بك سري ومخصص لمرة واحدة فقط، ويتجدد تلقائياً عند أي إضافة لحماية الأمان التام.
         </p>
 
         <div style="font-size: 0.8rem; color: var(--accent-cyan); text-align: right; margin-bottom: 4px; font-weight: 600;">
-          رقم الدعوة المخصص لك (صالح لمرة واحدة):
+          رقم الدعوة المخصص لك:
         </div>
         <div class="code-display" id="my-invite-number">ANT-784920</div>
 
@@ -97,10 +99,15 @@
           <i class="fa-solid fa-share-nodes" style="margin-left: 8px;"></i> إرسال رقمك كدعوة لشريكك
         </button>
 
-        <hr style="border: none; border-top: 1px dashed rgba(255,255,255,0.12); margin: 20px 0;">
+        <hr style="border: none; border-top: 1px dashed rgba(255,255,255,0.12); margin: 18px 0;">
 
         <div style="font-size: 0.8rem; color: var(--accent-gold); text-align: right; margin-bottom: 6px; font-weight: 600;">
-          أدخل رقم دعوة الشريك لإضافته:
+          اسم الشريك / التسمية الخاصة (مثال: روحي ❤️):
+        </div>
+        <input type="text" id="partner-nickname-input" class="chat-input" placeholder="اكتب الاسم المفضل للشريك..." style="background: rgba(255,255,255,0.06); border: 1px solid var(--border-gold); padding: 12px; border-radius: 14px; width: 100%; text-align: center; font-weight: 700; color: #fff; margin-bottom: 12px;">
+
+        <div style="font-size: 0.8rem; color: var(--accent-gold); text-align: right; margin-bottom: 6px; font-weight: 600;">
+          أدخل رقم دعوة الشريك للاستقبال والاقتران:
         </div>
         <input type="text" id="partner-invite-input" class="chat-input" placeholder="مثال: ANT-984210" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border-gold); padding: 12px; border-radius: 14px; width: 100%; text-align: center; font-weight: 700; letter-spacing: 2px; color: #fff; margin-bottom: 12px;">
 
@@ -115,7 +122,28 @@
     </div>
 
     <!-- =========================================================
-         4. SECRET "6 DAYS MODE" CONFIRMATION MODAL
+         4. PHOTO TYPE SELECTOR MODAL
+         ========================================================= -->
+    <div class="modal-backdrop" id="image-type-modal">
+      <div class="pairing-card" style="max-width: 330px;">
+        <h3 style="color: var(--accent-gold); font-size: 1.25rem; margin-bottom: 14px;">اختر نوع إرسال الصورة</h3>
+        
+        <button class="action-btn-gold" id="select-regular-image-btn" style="margin-bottom: 10px; font-size: 0.95rem;">
+          📸 صورة عادية (تظل دائمة بالدردشة)
+        </button>
+        
+        <button class="action-btn-gold" id="select-view-once-image-btn" style="background: linear-gradient(135deg, var(--accent-cyan) 0%, #0099cc 100%); color: #000; font-size: 0.95rem;">
+          ⏱️ صورة مؤقتة (تدمير ذاتي 5 ثواني)
+        </button>
+
+        <button class="action-btn-gold" id="close-image-type-modal-btn" style="background: rgba(255,255,255,0.08); color: #fff; margin-top: 10px;">
+          إلغاء
+        </button>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         5. SECRET "6 DAYS MODE" CONFIRMATION MODAL
          ========================================================= -->
     <div class="modal-backdrop" id="secret-mode-modal">
       <div class="passcode-card" style="border-color: var(--accent-gold);">
@@ -135,7 +163,7 @@
     </div>
 
     <!-- =========================================================
-         5. VIEW-ONCE TIMED PHOTO MODAL
+         6. VIEW-ONCE TIMED PHOTO MODAL
          ========================================================= -->
     <div class="modal-backdrop" id="view-once-modal">
       <div style="text-align: center; width: 90%; max-width: 400px;">
@@ -147,57 +175,88 @@
     </div>
 
     <!-- =========================================================
-         6. MAIN APP SHELL
+         7. MAIN APP - WHATSAPP HOME MAIN SCREEN
          ========================================================= -->
     <div id="main-app">
       
-      <!-- Top Navigation Tabs (WhatsApp Style: Chats vs Contacts) -->
-      <nav class="app-top-nav">
-        <div class="app-brand-title" style="justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="assets/logo.jpg" class="nav-logo">
-            <span>Antika</span>
+      <!-- SCREEN 1: WHATSAPP HOME CHATS LIST (Identical Layout to WhatsApp Screenshot) -->
+      <div id="whatsapp-home-screen" class="app-screen active">
+        <!-- WhatsApp Header -->
+        <header class="wa-header">
+          <div class="wa-title">Antika ❤️</div>
+        </header>
+
+        <!-- WhatsApp Search Bar -->
+        <div class="wa-search-box">
+          <div class="wa-search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass wa-search-icon"></i>
+            <input type="text" id="wa-search-input" placeholder="ابحث في المحادثات..." autocomplete="off">
           </div>
-          <!-- Earpiece / AirPods Mode Quick Selector -->
-          <button id="audio-mode-toggle-btn" onclick="window.antikaChatEngine && window.antikaChatEngine.toggleAudioMode()" style="background: rgba(0, 242, 255, 0.08); border: 1px solid var(--border-cyan); color: var(--accent-cyan); font-size: 0.76rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-phone-volume"></i> سماعة الأذن / AirPods
-          </button>
         </div>
 
-        <div class="nav-tabs">
-          <button class="nav-tab-btn active" id="tab-chat-btn">
-            <i class="fa-solid fa-comments"></i> المحادثة
-          </button>
-          <button class="nav-tab-btn" id="tab-contacts-btn">
-            <i class="fa-solid fa-address-book"></i> جهات الاتصال
-          </button>
+        <!-- WhatsApp Filter Pills -->
+        <div class="wa-filter-pills">
+          <button class="wa-pill active" data-filter="all">الكل</button>
+          <button class="wa-pill" data-filter="unread">غير مقروءة</button>
+          <button class="wa-pill" data-filter="fav">المفضلة</button>
+          <button class="wa-pill" data-filter="private">الخاصة ❤️</button>
         </div>
-      </nav>
 
-      <!-- VIEW 1: ACTIVE CHAT SCREEN -->
-      <div id="chat-view-section" class="app-section-view active">
-        <!-- Header -->
+        <!-- Couples Heartbeat & Distance Widget (Fun & Interactive) -->
+        <div class="couples-distance-card">
+          <div class="distance-heart-icon">
+            <i class="fa-solid fa-heart-pulse"></i>
+          </div>
+          <div class="distance-info">
+            <div class="distance-title">القلبان نبض واحد ✨</div>
+            <div class="distance-sub">مهما بلغت المسافات، الحب يقرّب القلوب</div>
+          </div>
+        </div>
+
+        <!-- WhatsApp Chat List Items Container -->
+        <div class="wa-chats-list" id="wa-chats-list-container">
+          <!-- Dynamic Chat List Row Rendered Here -->
+        </div>
+
+        <!-- WhatsApp Floating Action Button (+) for Adding Contact -->
+        <button class="wa-fab-btn" id="wa-fab-add-btn" title="إضافة شريك جديد">
+          <i class="fa-solid fa-comment-medical"></i>
+        </button>
+      </div>
+
+      <!-- SCREEN 2: ACTIVE CHAT DETAIL VIEW -->
+      <div id="whatsapp-chat-screen" class="app-screen">
+        <!-- Chat Detail Header with Back Button -->
         <header class="app-header">
           <div class="partner-info">
+            <button class="icon-btn" id="back-to-home-btn" title="رجوع للمحادثات" style="margin-left: 4px;">
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
             <div class="avatar-wrapper">
-              <img src="assets/logo.jpg" alt="Partner Avatar" class="partner-avatar">
+              <img src="assets/logo_192.png" alt="Partner Avatar" class="partner-avatar">
               <div class="status-pulse"></div>
             </div>
             <div class="partner-details">
-              <h3 id="active-partner-name">روحي ❤️</h3>
+              <h3 id="active-partner-name">الشريك ❤️</h3>
               <span id="partner-status-text"><i class="fa-solid fa-heart" style="font-size: 0.7rem; color: var(--accent-rose);"></i> متصل الآن | قريبان بالقلب</span>
             </div>
           </div>
 
           <div class="header-actions">
-            <button class="icon-btn cyan-glow" id="start-voice-call-btn" title="مكالمة صوتية HD">
+            <button id="audio-mode-toggle-btn"
+              onclick="window.antikaChatEngine && window.antikaChatEngine.toggleAudioMode()"
+              class="audio-toggle-btn" title="تبديل نمط الصوت">
+              <i class="fa-solid fa-phone-volume"></i> سماعة الأذن
+            </button>
+            <button class="icon-btn cyan-glow" id="start-voice-call-btn"
+              onclick="window.antikaCallEngine && window.antikaCallEngine.startCall('voice')"
+              title="مكالمة صوتية">
               <i class="fa-solid fa-phone"></i>
             </button>
-            <button class="icon-btn cyan-glow" id="start-video-call-btn" title="مكالمة فيديو HD">
+            <button class="icon-btn cyan-glow" id="start-video-call-btn"
+              onclick="window.antikaCallEngine && window.antikaCallEngine.startCall('video')"
+              title="مكالمة فيديو">
               <i class="fa-solid fa-video"></i>
-            </button>
-            <button class="icon-btn" id="open-add-contact-btn" title="إضافة شريك برقم جديد">
-              <i class="fa-solid fa-user-plus"></i>
             </button>
           </div>
         </header>
@@ -211,14 +270,14 @@
           <div class="vault-timer" id="vault-timer-display">04:59:59</div>
         </div>
 
-        <!-- Chat Container -->
+        <!-- Chat Messages Container -->
         <main class="chat-container" id="chat-messages-list">
           <div class="date-divider">
             <span>الدفء ينبض هنا • Antika</span>
           </div>
         </main>
 
-        <!-- Chat Input Footer -->
+        <!-- Chat Input Footer Bar -->
         <footer class="chat-input-bar">
           <button class="attach-btn" id="attach-image-btn" title="إرسال صورة">
             <i class="fa-solid fa-image"></i>
@@ -248,26 +307,10 @@
         </footer>
       </div>
 
-      <!-- VIEW 2: WHATSAPP-STYLE CONTACTS LIST VIEW -->
-      <div id="contacts-view-section" class="app-section-view">
-        <div class="contacts-header">
-          <h2>جهات الاتصال المقترنة</h2>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">الشريك المقترن برقم مخصص آمن</span>
-        </div>
-
-        <div class="contacts-list" id="contacts-list-container">
-          <!-- Dynamic Contacts Items Rendered Here -->
-        </div>
-
-        <button class="fab-add-contact" id="fab-add-contact-btn" title="إضافة شريك جديد">
-          <i class="fa-solid fa-plus"></i>
-        </button>
-      </div>
-
     </div>
 
     <!-- =========================================================
-         7. HD CALL OVERLAY (VOICE & VIDEO)
+         8. HD CALL OVERLAY (VOICE & VIDEO)
          ========================================================= -->
     <div id="call-modal">
       <div class="call-video-grid">
@@ -277,20 +320,26 @@
 
       <div class="call-header" style="z-index: 10;">
         <div class="call-avatar-container" id="call-avatar-wrap">
-          <img src="assets/logo.jpg" class="call-big-avatar">
+          <img src="assets/logo_192.png" class="call-big-avatar">
         </div>
-        <div class="call-partner-name" id="call-partner-display-name">روحي ❤️</div>
+        <div class="call-partner-name" id="call-partner-display-name">الشريك ❤️</div>
         <div class="call-status-text" id="call-status-label">جاري الاتصال...</div>
       </div>
 
       <div class="call-controls">
-        <button class="call-btn" id="toggle-mic-btn" title="كتم الصوت">
+        <button class="call-btn" id="toggle-mic-btn"
+          onclick="window.antikaCallEngine && window.antikaCallEngine.toggleMic(this)"
+          title="كتم / تفعيل الميكروفون">
           <i class="fa-solid fa-microphone"></i>
         </button>
-        <button class="call-btn end-call" id="end-call-btn" title="إنهاء المكالمة">
+        <button class="call-btn end-call" id="end-call-btn"
+          onclick="window.antikaCallEngine && window.antikaCallEngine.endCall()"
+          title="إنهاء المكالمة">
           <i class="fa-solid fa-phone-slash"></i>
         </button>
-        <button class="call-btn" id="toggle-cam-btn" title="الكاميرا">
+        <button class="call-btn" id="toggle-cam-btn"
+          onclick="window.antikaCallEngine && window.antikaCallEngine.toggleCamera(this)"
+          title="تشغيل / إيقاف الكاميرا">
           <i class="fa-solid fa-video"></i>
         </button>
       </div>

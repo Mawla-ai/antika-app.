@@ -4,8 +4,9 @@
   "description": "تطبيق محادثة فاخر وخاص للكابلز",
   "start_url": "./index.html",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#0b0e14",
-  "theme_color": "#d4af37",
+  "theme_color": "#0b0e14",
   "orientation": "portrait",
   "icons": [
     {

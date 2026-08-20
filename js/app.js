@@ -1,6 +1,7 @@
-/* Antika - Main Application, Tab Navigation & Single-Use Contacts Controller */
+/* Antika - WhatsApp-Style Home Screen & App Controller */
 class AntikaAppController {
   constructor() {
+    // Clock elements
     this.camouflageScreen = document.getElementById('camouflage-screen');
     this.clockTrigger = document.getElementById('aya-clock-trigger');
     this.digitalClock = document.getElementById('digital-clock');
@@ -8,52 +9,53 @@ class AntikaAppController {
     this.minuteHand = document.getElementById('minute-hand');
     this.secondHand = document.getElementById('second-hand');
 
-    // Passcode Modal Elements
+    // Screens
+    this.homeScreen = document.getElementById('whatsapp-home-screen');
+    this.chatScreen = document.getElementById('whatsapp-chat-screen');
+
+    // Passcode elements
     this.passcodeModal = document.getElementById('passcode-modal');
     this.passcodeTitle = document.getElementById('passcode-header-title');
     this.passcodeDesc = document.getElementById('passcode-header-desc');
     this.pinDotsContainer = document.getElementById('pin-dots-container');
 
-    // Tab Navigation & Views
-    this.tabChatBtn = document.getElementById('tab-chat-btn');
-    this.tabContactsBtn = document.getElementById('tab-contacts-btn');
-    this.chatViewSection = document.getElementById('chat-view-section');
-    this.contactsViewSection = document.getElementById('contacts-view-section');
-    this.contactsListContainer = document.getElementById('contacts-list-container');
-
-    // Add Contact / Single-Use Invite Code Modal Elements
+    // Add Contact Modal
     this.addContactModal = document.getElementById('add-contact-modal');
-    this.fabAddContactBtn = document.getElementById('fab-add-contact-btn');
-    this.openAddContactHeaderBtn = document.getElementById('open-add-contact-btn');
-    this.closeAddContactModalBtn = document.getElementById('close-add-contact-modal-btn');
-    this.shareMyInviteBtn = document.getElementById('share-my-invite-btn');
     this.myInviteNumberDisplay = document.getElementById('my-invite-number');
+    this.partnerNicknameInput = document.getElementById('partner-nickname-input');
     this.partnerInviteInput = document.getElementById('partner-invite-input');
-    this.confirmAddPartnerBtn = document.getElementById('confirm-add-partner-btn');
 
+    // Passcode state
     this.enteredPin = '';
     this.storedPin = localStorage.getItem('antika_passcode') || null;
     this.isSettingUpPin = !this.storedPin;
 
+    // Long press state
     this.longPressTimer = null;
-    this.longPressDuration = 800; // 0.8 seconds for smooth long press on mobile
+    this.longPressDuration = 800;
     this.clickCount = 0;
     this.clickResetTimer = null;
 
-    // Contacts Storage
+    // Data
     this.myInviteCode = this.getOrGenerateInviteCode();
     this.contacts = this.loadContacts();
+    this.activeContactId = null;
 
     this.initClock();
     this.bindLongPressEvents();
     this.bindNumpadEvents();
-    this.bindTabNavigation();
     this.bindAddContactEvents();
-    this.renderContactsList();
+    this.bindHomeScreenEvents();
+    this.bindBackButton();
+    this.bindSearchAndFilter();
     this.registerServiceWorker();
+    this.loadActivePartnerName();
+    this.renderChatList();
   }
 
-  /* 1. Real-time Luxury Clock */
+  /* =========================================================
+     1. Real-time Luxury Clock
+     ========================================================= */
   initClock() {
     const updateClock = () => {
       const now = new Date();
@@ -77,22 +79,21 @@ class AntikaAppController {
 
       requestAnimationFrame(updateClock);
     };
-
     requestAnimationFrame(updateClock);
   }
 
-  /* 2. Camouflage Clock Touch & Long-Press Trigger */
+  /* =========================================================
+     2. Camouflage Clock Long-Press Trigger
+     ========================================================= */
   bindLongPressEvents() {
     const triggerUnlockModal = () => {
       if (navigator.vibrate) navigator.vibrate(80);
       this.openPasscodeModal();
     };
 
-    const startPress = (e) => {
+    const startPress = () => {
       if (this.longPressTimer) clearTimeout(this.longPressTimer);
-      this.longPressTimer = setTimeout(() => {
-        triggerUnlockModal();
-      }, this.longPressDuration);
+      this.longPressTimer = setTimeout(() => triggerUnlockModal(), this.longPressDuration);
     };
 
     const cancelPress = () => {
@@ -102,22 +103,18 @@ class AntikaAppController {
       }
     };
 
-    // Pointer & Touch Events for mobile Android WebViews
     if ('PointerEvent' in window) {
       this.clockTrigger.addEventListener('pointerdown', startPress);
       this.clockTrigger.addEventListener('pointerup', cancelPress);
       this.clockTrigger.addEventListener('pointercancel', cancelPress);
     } else {
-      this.clockTrigger.addEventListener('mousedown', startPress);
-      this.clockTrigger.addEventListener('mouseup', cancelPress);
-      this.clockTrigger.addEventListener('mouseleave', cancelPress);
-
       this.clockTrigger.addEventListener('touchstart', startPress, { passive: true });
       this.clockTrigger.addEventListener('touchend', cancelPress);
       this.clockTrigger.addEventListener('touchcancel', cancelPress);
+      this.clockTrigger.addEventListener('mousedown', startPress);
+      this.clockTrigger.addEventListener('mouseup', cancelPress);
     }
 
-    // Alternative Instant Trigger: 3 Quick Taps on the Clock
     this.clockTrigger.addEventListener('click', () => {
       this.clickCount++;
       clearTimeout(this.clickResetTimer);
@@ -126,14 +123,14 @@ class AntikaAppController {
         cancelPress();
         triggerUnlockModal();
       } else {
-        this.clickResetTimer = setTimeout(() => {
-          this.clickCount = 0;
-        }, 800);
+        this.clickResetTimer = setTimeout(() => { this.clickCount = 0; }, 800);
       }
     });
   }
 
-  /* 3. Passcode Setup & Verification Modal */
+  /* =========================================================
+     3. Passcode Modal
+     ========================================================= */
   openPasscodeModal() {
     this.enteredPin = '';
     this.updatePinDots();
@@ -152,12 +149,8 @@ class AntikaAppController {
   }
 
   bindNumpadEvents() {
-    const numBtns = document.querySelectorAll('.num-btn');
-    numBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = btn.getAttribute('data-val');
-        this.handleNumpadInput(val);
-      });
+    document.querySelectorAll('.num-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.handleNumpadInput(btn.getAttribute('data-val')));
     });
   }
 
@@ -169,22 +162,13 @@ class AntikaAppController {
     } else if (this.enteredPin.length < 4) {
       this.enteredPin += val;
     }
-
     this.updatePinDots();
-
-    if (this.enteredPin.length === 4) {
-      setTimeout(() => this.submitPin(), 250);
-    }
+    if (this.enteredPin.length === 4) setTimeout(() => this.submitPin(), 250);
   }
 
   updatePinDots() {
-    const dots = this.pinDotsContainer.querySelectorAll('.dot');
-    dots.forEach((dot, idx) => {
-      if (idx < this.enteredPin.length) {
-        dot.classList.add('filled');
-      } else {
-        dot.classList.remove('filled');
-      }
+    this.pinDotsContainer.querySelectorAll('.dot').forEach((dot, idx) => {
+      dot.classList.toggle('filled', idx < this.enteredPin.length);
     });
   }
 
@@ -205,6 +189,7 @@ class AntikaAppController {
         this.passcodeTitle.style.color = 'var(--accent-rose)';
         this.enteredPin = '';
         this.updatePinDots();
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         setTimeout(() => {
           this.passcodeTitle.style.color = 'var(--accent-gold)';
           this.passcodeTitle.textContent = 'أدخل رمز الدخول';
@@ -217,32 +202,9 @@ class AntikaAppController {
     this.camouflageScreen.classList.add('hidden');
   }
 
-  /* 4. WhatsApp Style Tab Navigation */
-  bindTabNavigation() {
-    this.tabChatBtn.addEventListener('click', () => {
-      this.switchTab('chat');
-    });
-
-    this.tabContactsBtn.addEventListener('click', () => {
-      this.switchTab('contacts');
-    });
-  }
-
-  switchTab(tabName) {
-    if (tabName === 'chat') {
-      this.tabChatBtn.classList.add('active');
-      this.tabContactsBtn.classList.remove('active');
-      this.chatViewSection.classList.add('active');
-      this.contactsViewSection.classList.remove('active');
-    } else {
-      this.tabContactsBtn.classList.add('active');
-      this.tabChatBtn.classList.remove('active');
-      this.contactsViewSection.classList.add('active');
-      this.chatViewSection.classList.remove('active');
-    }
-  }
-
-  /* 5. Single-Use Exclusive Invite Code & Contacts Engine */
+  /* =========================================================
+     4. Data: Contacts & Invite Codes
+     ========================================================= */
   getOrGenerateInviteCode() {
     let code = localStorage.getItem('antika_my_invite_code');
     if (!code) {
@@ -256,72 +218,184 @@ class AntikaAppController {
     const usedCodes = JSON.parse(localStorage.getItem('antika_used_codes') || '[]');
     usedCodes.push(this.myInviteCode);
     localStorage.setItem('antika_used_codes', JSON.stringify(usedCodes));
-
     this.myInviteCode = 'ANT-' + Math.floor(100000 + Math.random() * 900000);
     localStorage.setItem('antika_my_invite_code', this.myInviteCode);
-    this.myInviteNumberDisplay.textContent = this.myInviteCode;
+    if (this.myInviteNumberDisplay) this.myInviteNumberDisplay.textContent = this.myInviteCode;
   }
 
   loadContacts() {
-    const saved = localStorage.getItem('antika_contacts_list');
-    if (saved) return JSON.parse(saved);
-
-    return [
-      {
-        id: 'c1',
-        name: 'روحي ❤️',
-        code: 'ANT-849201',
-        avatar: 'assets/logo.jpg',
-        status: 'قريبان بالقلب | متصل',
-        lastMsg: 'أنت دائماً في بالي وفي قلبي ✨'
-      }
-    ];
+    return JSON.parse(localStorage.getItem('antika_contacts_list') || '[]');
   }
 
   saveContacts() {
     localStorage.setItem('antika_contacts_list', JSON.stringify(this.contacts));
-    this.renderContactsList();
   }
 
-  bindAddContactEvents() {
-    const openModal = () => {
-      this.myInviteNumberDisplay.textContent = this.myInviteCode;
-      this.partnerInviteInput.value = '';
-      this.addContactModal.classList.add('active');
-    };
+  loadActivePartnerName() {
+    const savedName = localStorage.getItem('antika_partner_name');
+    if (savedName) {
+      const el1 = document.getElementById('active-partner-name');
+      const el2 = document.getElementById('call-partner-display-name');
+      if (el1) el1.textContent = savedName;
+      if (el2) el2.textContent = savedName;
+    }
+  }
 
-    if (this.fabAddContactBtn) this.fabAddContactBtn.addEventListener('click', openModal);
-    if (this.openAddContactHeaderBtn) this.openAddContactHeaderBtn.addEventListener('click', openModal);
+  /* =========================================================
+     5. WhatsApp Home Screen: Chat List Rendering
+     ========================================================= */
+  renderChatList(filterFn = null) {
+    const container = document.getElementById('wa-chats-list-container');
+    if (!container) return;
+    container.innerHTML = '';
 
-    if (this.closeAddContactModalBtn) {
-      this.closeAddContactModalBtn.addEventListener('click', () => {
-        this.addContactModal.classList.remove('active');
+    const list = filterFn ? this.contacts.filter(filterFn) : this.contacts;
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="wa-empty-state">
+          <i class="fa-solid fa-heart" style="font-size: 3rem; color: var(--accent-gold); opacity: 0.5; margin-bottom: 14px;"></i>
+          <p style="font-size: 0.95rem; color: var(--text-muted); text-align: center; max-width: 240px; line-height: 1.6;">
+            لا توجد محادثات بعد.<br>اضغط على <strong style="color: var(--accent-green);">+</strong> لإضافة شريكك والبدء.
+          </p>
+        </div>`;
+      return;
+    }
+
+    list.forEach(contact => {
+      const row = document.createElement('div');
+      row.className = 'wa-chat-row';
+      row.setAttribute('data-contact-id', contact.id);
+
+      const now = new Date();
+      const timeStr = contact.lastTime || `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')} ${now.getHours() >= 12 ? 'م' : 'ص'}`;
+
+      row.innerHTML = `
+        <div class="wa-chat-row-left">
+          <img class="wa-avatar" src="${contact.avatar || 'assets/logo_192.png'}" alt="${contact.name}">
+          <div class="wa-chat-details">
+            <h4>${contact.name}</h4>
+            <div class="wa-chat-preview">
+              <i class="fa-solid fa-check-double" style="color: var(--accent-cyan); font-size: 0.7rem;"></i>
+              ${contact.lastMsg || 'تم الاقتران بنجاح ❤️'}
+            </div>
+          </div>
+        </div>
+        <div class="wa-chat-meta">
+          <span class="wa-time">${timeStr}</span>
+          ${contact.unread ? `<span class="wa-badge">${contact.unread}</span>` : ''}
+        </div>
+      `;
+
+      row.addEventListener('click', () => this.openChat(contact));
+      container.appendChild(row);
+    });
+  }
+
+  openChat(contact) {
+    this.activeContactId = contact.id;
+
+    // Update chat header with partner name
+    const nameEl = document.getElementById('active-partner-name');
+    const callNameEl = document.getElementById('call-partner-display-name');
+    if (nameEl) nameEl.textContent = contact.name;
+    if (callNameEl) callNameEl.textContent = contact.name;
+
+    // Navigate to chat screen with slide animation
+    this.homeScreen.classList.remove('active');
+    this.chatScreen.classList.add('active');
+    this.chatScreen.classList.add('slide-in');
+    setTimeout(() => this.chatScreen.classList.remove('slide-in'), 350);
+
+    // Reset unread count on open
+    contact.unread = 0;
+    this.saveContacts();
+  }
+
+  /* =========================================================
+     6. Home Screen Events: FAB, Filter Pills, Search
+     ========================================================= */
+  bindHomeScreenEvents() {
+    const fabBtn = document.getElementById('wa-fab-add-btn');
+    if (fabBtn) {
+      fabBtn.addEventListener('click', () => {
+        if (this.myInviteNumberDisplay) this.myInviteNumberDisplay.textContent = this.myInviteCode;
+        if (this.partnerNicknameInput) this.partnerNicknameInput.value = '';
+        if (this.partnerInviteInput) this.partnerInviteInput.value = '';
+        this.addContactModal.classList.add('active');
+      });
+    }
+  }
+
+  bindBackButton() {
+    const backBtn = document.getElementById('back-to-home-btn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        this.chatScreen.classList.remove('active');
+        this.homeScreen.classList.add('active');
+        this.renderChatList(); // Refresh last message & time
+      });
+    }
+  }
+
+  bindSearchAndFilter() {
+    const searchInput = document.getElementById('wa-search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.toLowerCase().trim();
+        if (!q) {
+          this.renderChatList();
+        } else {
+          this.renderChatList(c => c.name.toLowerCase().includes(q) || (c.lastMsg || '').toLowerCase().includes(q));
+        }
       });
     }
 
-    if (this.shareMyInviteBtn) {
-      this.shareMyInviteBtn.addEventListener('click', () => {
-        const text = `دعوة اقتران خاصة على تطبيق Antika ❤️\nرقم الدعوة المخصص لك: ${this.myInviteCode}\nحمل التطبيق واضف هذا الرقم للاقتران الآمن.`;
+    document.querySelectorAll('.wa-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.wa-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const filter = pill.getAttribute('data-filter');
+        if (filter === 'all') this.renderChatList();
+        else if (filter === 'unread') this.renderChatList(c => c.unread > 0);
+        else if (filter === 'fav') this.renderChatList(c => c.fav);
+        else if (filter === 'private') this.renderChatList(); // All in private app
+      });
+    });
+  }
+
+  /* =========================================================
+     7. Add Contact & Partner Pairing
+     ========================================================= */
+  bindAddContactEvents() {
+    const closeBtn = document.getElementById('close-add-contact-modal-btn');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.addContactModal.classList.remove('active'));
+
+    const shareBtn = document.getElementById('share-my-invite-btn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => {
+        const text = `دعوة اقتران خاصة على تطبيق Antika ❤️\nرقم الدعوة المخصص لك: ${this.myInviteCode}\nأضف هذا الرقم في التطبيق للاقتران الآمن.`;
         if (navigator.share) {
-          navigator.share({ title: 'دعوة Antika', text: text });
+          navigator.share({ title: 'دعوة Antika', text });
         } else {
           navigator.clipboard.writeText(text).then(() => {
-            this.shareMyInviteBtn.innerHTML = '<i class="fa-solid fa-check"></i> تم نسخ رقم الدعوة!';
+            shareBtn.innerHTML = '<i class="fa-solid fa-check"></i> تم نسخ رقم الدعوة!';
             setTimeout(() => {
-              this.shareMyInviteBtn.innerHTML = '<i class="fa-solid fa-share-nodes" style="margin-left: 8px;"></i> إرسال رقمك كدعوة لشريكك';
+              shareBtn.innerHTML = '<i class="fa-solid fa-share-nodes" style="margin-left:8px;"></i> إرسال رقمك كدعوة لشريكك';
             }, 2000);
           });
         }
       });
     }
 
-    if (this.confirmAddPartnerBtn) {
-      this.confirmAddPartnerBtn.addEventListener('click', () => {
-        const enteredCode = this.partnerInviteInput.value.trim().toUpperCase();
-        if (!enteredCode) {
-          alert('يرجى كتابة رقم دعوة الشريك أولاً');
-          return;
-        }
+    const confirmBtn = document.getElementById('confirm-add-partner-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        const enteredCode = (this.partnerInviteInput?.value || '').trim().toUpperCase();
+        const customName = (this.partnerNicknameInput?.value || '').trim();
+        const partnerName = customName || `الشريك (${enteredCode.slice(4, 8) || '❤️'})`;
+
+        if (!enteredCode) { alert('يرجى كتابة رقم دعوة الشريك أولاً'); return; }
 
         const usedCodes = JSON.parse(localStorage.getItem('antika_used_codes') || '[]');
         if (usedCodes.includes(enteredCode)) {
@@ -329,64 +403,53 @@ class AntikaAppController {
           return;
         }
 
+        const now = new Date();
+        const timeStr = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')} ${now.getHours() >= 12 ? 'م' : 'ص'}`;
+
         const newContact = {
           id: 'c-' + Date.now(),
-          name: 'الشريك المقترن (' + enteredCode.substring(4, 8) + ') ❤️',
+          name: partnerName,
           code: enteredCode,
-          avatar: 'assets/logo.jpg',
-          status: 'مقترن حديثاً | آمن',
-          lastMsg: 'تم الاقتران بنجاح! يمكنكم التواصل الآن بحرية.'
+          avatar: 'assets/logo_192.png',
+          status: 'مقترن | آمن',
+          lastMsg: 'تم الاقتران بنجاح! ابدآ المحادثة ❤️',
+          lastTime: timeStr,
+          unread: 0,
+          fav: true
         };
 
         this.contacts.unshift(newContact);
         this.saveContacts();
-
+        localStorage.setItem('antika_partner_name', partnerName);
         this.regenerateInviteCode();
-
         this.addContactModal.classList.remove('active');
-        this.switchTab('chat');
-        document.getElementById('active-partner-name').textContent = newContact.name;
+        this.renderChatList();
 
-        if (window.antikaChatEngine) {
-          window.antikaChatEngine.renderSystemMessage(`✨ تم الاقتران بنجاح مع الشريك برقم الدعوة المخصص (${enteredCode})! تم تحديث وتجديد رقمك لضمان عدم إعادة استخدامه.`);
-        }
+        // Auto-open chat with newly added partner
+        setTimeout(() => this.openChat(newContact), 300);
+      });
+    }
+
+    // Also open add contact from chat header button
+    const openAddBtn = document.getElementById('open-add-contact-btn');
+    if (openAddBtn) {
+      openAddBtn.addEventListener('click', () => {
+        if (this.myInviteNumberDisplay) this.myInviteNumberDisplay.textContent = this.myInviteCode;
+        if (this.partnerNicknameInput) this.partnerNicknameInput.value = '';
+        if (this.partnerInviteInput) this.partnerInviteInput.value = '';
+        this.addContactModal.classList.add('active');
       });
     }
   }
 
-  renderContactsList() {
-    if (!this.contactsListContainer) return;
-    this.contactsListContainer.innerHTML = '';
-
-    this.contacts.forEach(contact => {
-      const card = document.createElement('div');
-      card.className = 'contact-card';
-      card.innerHTML = `
-        <div class="contact-card-info">
-          <img src="${contact.avatar}" class="contact-avatar">
-          <div class="contact-details">
-            <h4>${contact.name}</h4>
-            <span class="contact-code-badge">${contact.code}</span>
-            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px;">${contact.lastMsg}</div>
-          </div>
-        </div>
-        <div class="contact-status-online" title="متصل"></div>
-      `;
-
-      card.addEventListener('click', () => {
-        document.getElementById('active-partner-name').textContent = contact.name;
-        this.switchTab('chat');
-      });
-
-      this.contactsListContainer.appendChild(card);
-    });
-  }
-
+  /* =========================================================
+     8. Service Worker
+     ========================================================= */
   registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('Antika Service Worker Registered:', reg.scope))
-        .catch(err => console.log('SW registration note:', err));
+        .then(reg => console.log('Antika SW Registered:', reg.scope))
+        .catch(err => console.log('SW note:', err));
     }
   }
 }

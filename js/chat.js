@@ -1,4 +1,4 @@
-/* Antika - Chat, 6-Days Secret Vault & Earpiece/AirPods Audio Engine */
+/* Antika - Production Chat Engine & Real-Time P2P Broadcast Channel */
 class AntikaChatEngine {
   constructor() {
     this.chatList = document.getElementById('chat-messages-list');
@@ -8,8 +8,15 @@ class AntikaChatEngine {
     this.recordingBar = document.getElementById('recording-bar');
     this.recTimerDisplay = document.getElementById('rec-timer-display');
     this.cancelRecBtn = document.getElementById('cancel-rec-btn');
+
+    // Attach Image & Type Selection Modal Elements
     this.attachImgBtn = document.getElementById('attach-image-btn');
     this.fileInput = document.getElementById('image-file-input');
+    this.imageTypeModal = document.getElementById('image-type-modal');
+    this.selectRegularImgBtn = document.getElementById('select-regular-image-btn');
+    this.selectViewOnceImgBtn = document.getElementById('select-view-once-image-btn');
+    this.closeImageTypeModalBtn = document.getElementById('close-image-type-modal-btn');
+    this.isTimedImageSelected = false;
 
     // 6 Days Mode elements
     this.secretModal = document.getElementById('secret-mode-modal');
@@ -35,13 +42,47 @@ class AntikaChatEngine {
     this.userKwMentioned = false;
     this.partnerKwMentioned = false;
 
-    // Audio Output Mode: 'earpiece' (Phone Call / AirPods) vs 'speaker' (Loud Speaker)
     this.audioOutputMode = 'earpiece'; // Default to private phone call / earpiece / AirPods mode
     this.currentAudioElement = null;
 
+    // Unique Session ID for real P2P pair communication
+    this.mySessionId = 'sess-' + Math.random().toString(36).substring(2, 9);
+
+    this.initRealtimeBroadcastChannel();
     this.initEvents();
     this.initEarpieceAndHeadsetRouting();
-    this.loadDefaultWelcomeMessages();
+    this.checkInitialEmptyState();
+  }
+
+  /* Real-Time Live Messaging BroadcastChannel */
+  initRealtimeBroadcastChannel() {
+    if ('BroadcastChannel' in window) {
+      this.channel = new BroadcastChannel('antika_p2p_channel');
+      this.channel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+
+        if (data.type === 'NEW_MESSAGE' && data.senderId !== this.mySessionId) {
+          const msgObj = {
+            id: data.msg.id,
+            type: data.msg.type,
+            text: data.msg.text,
+            media: data.msg.media,
+            sender: 'received',
+            time: data.msg.time,
+            mode6: data.msg.mode6
+          };
+          this.renderMessage(msgObj);
+          this.check6DaysKeyword(data.msg.text, 'received');
+
+          if (window.notificationManager) {
+            window.notificationManager.sendDisguisedNotification();
+          }
+        } else if (data.type === 'ACTIVATE_6DAYS' && data.senderId !== this.mySessionId) {
+          this.activate6DaysMode(true);
+        }
+      };
+    }
   }
 
   initEvents() {
@@ -64,31 +105,57 @@ class AntikaChatEngine {
     this.voiceRecBtn.addEventListener('click', () => this.toggleVoiceRecording());
     this.cancelRecBtn.addEventListener('click', () => this.cancelRecording());
 
-    this.attachImgBtn.addEventListener('click', () => this.fileInput.click());
-    this.fileInput.addEventListener('change', (e) => this.handleImageSelect(e));
+    // Image Attachment Menu (Regular vs Timed View-Once)
+    this.attachImgBtn.addEventListener('click', () => {
+      if (this.imageTypeModal) {
+        this.imageTypeModal.classList.add('active');
+      } else {
+        this.fileInput.click();
+      }
+    });
 
-    this.confirmSecretBtn.addEventListener('click', () => this.activate6DaysMode());
-    this.cancelSecretBtn.addEventListener('click', () => this.secretModal.classList.remove('active'));
-  }
-
-  /* Earpiece, AirPods & Proximity Routing Setup */
-  async initEarpieceAndHeadsetRouting() {
-    // Listen for audio output device changes (AirPods / Headphones plugin/unplug)
-    if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
-      navigator.mediaDevices.ondevicechange = () => {
-        this.detectAudioDevices();
-      };
-    }
-
-    // Proximity Sensor Simulation / Device Motion for Earpiece Ear Hold
-    if ('UserProximityEvent' in window) {
-      window.addEventListener('userproximity', (event) => {
-        if (event.near) {
-          this.setAudioOutputMode('earpiece');
-        }
+    if (this.selectRegularImgBtn) {
+      this.selectRegularImgBtn.addEventListener('click', () => {
+        this.isTimedImageSelected = false;
+        this.imageTypeModal.classList.remove('active');
+        this.fileInput.click();
       });
     }
 
+    if (this.selectViewOnceImgBtn) {
+      this.selectViewOnceImgBtn.addEventListener('click', () => {
+        this.isTimedImageSelected = true;
+        this.imageTypeModal.classList.remove('active');
+        this.fileInput.click();
+      });
+    }
+
+    if (this.closeImageTypeModalBtn) {
+      this.closeImageTypeModalBtn.addEventListener('click', () => {
+        this.imageTypeModal.classList.remove('active');
+      });
+    }
+
+    this.fileInput.addEventListener('change', (e) => this.handleImageSelect(e));
+
+    this.confirmSecretBtn.addEventListener('click', () => {
+      this.activate6DaysMode(false);
+      if (this.channel) {
+        this.channel.postMessage({ type: 'ACTIVATE_6DAYS', senderId: this.mySessionId });
+      }
+    });
+    this.cancelSecretBtn.addEventListener('click', () => this.secretModal.classList.remove('active'));
+  }
+
+  async initEarpieceAndHeadsetRouting() {
+    if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
+      navigator.mediaDevices.ondevicechange = () => this.detectAudioDevices();
+    }
+    if ('UserProximityEvent' in window) {
+      window.addEventListener('userproximity', (event) => {
+        if (event.near) this.setAudioOutputMode('earpiece');
+      });
+    }
     this.detectAudioDevices();
   }
 
@@ -105,7 +172,6 @@ class AntikaChatEngine {
       );
 
       if (hasHeadphones) {
-        console.log('Headset / AirPods detected! Routing audio directly.');
         this.audioOutputMode = 'earpiece';
       }
     } catch (e) {
@@ -114,11 +180,11 @@ class AntikaChatEngine {
   }
 
   setAudioOutputMode(mode) {
-    this.audioOutputMode = mode; // 'earpiece' or 'speaker'
+    this.audioOutputMode = mode;
     const btn = document.getElementById('audio-mode-toggle-btn');
     if (btn) {
       if (mode === 'earpiece') {
-        btn.innerHTML = '<i class="fa-solid fa-phone-volume"></i> سماعة الأذن / AirPods';
+        btn.innerHTML = '<i class="fa-solid fa-phone-volume"></i> سماعة الأذن';
         btn.style.color = 'var(--accent-cyan)';
       } else {
         btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> مكبر الصوت';
@@ -132,9 +198,6 @@ class AntikaChatEngine {
     this.setAudioOutputMode(newMode);
   }
 
-  /**
-   * Play Voice Note through Earpiece / Phone Call / AirPods mode instead of loud music speaker
-   */
   async playAudio(src) {
     if (this.currentAudioElement) {
       this.currentAudioElement.pause();
@@ -144,43 +207,28 @@ class AntikaChatEngine {
     const audio = new Audio(src);
     this.currentAudioElement = audio;
 
-    // Apply Earpiece / AirPods Routing if setSinkId is supported by browser/device
     if (typeof audio.setSinkId === 'function') {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        let targetDevice = null;
-
-        if (this.audioOutputMode === 'earpiece') {
-          // Look for communications / earpiece / headset / bluetooth sink
-          targetDevice = devices.find(d => 
-            d.kind === 'audiooutput' && 
-            (d.deviceId === 'communications' || 
-             d.label.toLowerCase().includes('earpiece') || 
-             d.label.toLowerCase().includes('headset') ||
-             d.label.toLowerCase().includes('airpods') ||
-             d.label.toLowerCase().includes('bluetooth'))
-          );
-        }
-
-        if (targetDevice) {
-          await audio.setSinkId(targetDevice.deviceId);
-        }
+        const targetDevice = devices.find(d => 
+          d.kind === 'audiooutput' && 
+          (d.deviceId === 'communications' || 
+           d.label.toLowerCase().includes('earpiece') || 
+           d.label.toLowerCase().includes('headset') ||
+           d.label.toLowerCase().includes('airpods') ||
+           d.label.toLowerCase().includes('bluetooth'))
+        );
+        if (targetDevice) await audio.setSinkId(targetDevice.deviceId);
       } catch (err) {
         console.log('sinkId routing note:', err);
       }
     }
 
-    // Adjust volume & equalization profile for Earpiece / Call feel (no blasting speaker)
-    if (this.audioOutputMode === 'earpiece') {
-      audio.volume = 0.7; // Comfortable private earpiece volume level
-    } else {
-      audio.volume = 1.0;
-    }
-
+    audio.volume = (this.audioOutputMode === 'earpiece') ? 0.7 : 1.0;
     audio.play().catch(e => console.log('Voice note play note:', e));
   }
 
-  sendMessage(customText = null, isVoice = false, mediaData = null) {
+  sendMessage(customText = null, isVoice = false, mediaData = null, isTimedMedia = false) {
     const text = customText || this.inputField.value.trim();
     if (!text && !isVoice && !mediaData) return;
 
@@ -190,9 +238,12 @@ class AntikaChatEngine {
       this.voiceRecBtn.style.display = 'flex';
     }
 
+    const emptyBanner = document.getElementById('empty-chat-banner');
+    if (emptyBanner) emptyBanner.remove();
+
     const msgObj = {
       id: 'msg-' + Date.now(),
-      type: isVoice ? 'voice' : (mediaData ? 'image' : 'text'),
+      type: isVoice ? 'voice' : (mediaData ? (isTimedMedia ? 'image_timed' : 'image_regular') : 'text'),
       text: text,
       media: mediaData,
       sender: 'sent',
@@ -203,50 +254,24 @@ class AntikaChatEngine {
     this.renderMessage(msgObj);
     this.check6DaysKeyword(text, 'sent');
 
-    setTimeout(() => {
-      this.simulatePartnerReply(text);
-    }, 1400);
-  }
-
-  simulatePartnerReply(sentText) {
-    const replies = [
-      "اشتقت لك جداً ❤️",
-      "مهما طالت المسافات، روحنا وحدة ❤️",
-      "أنت دائماً في بالي وفي قلبي ✨",
-      "مع بعض ديماً إن شاء الله 💕"
-    ];
-    let replyText = replies[Math.floor(Math.random() * replies.length)];
-
-    if (sentText.includes('6 أيام') || sentText.includes('6 ايام')) {
-      replyText = "تأكيد: 6 أيام 💕";
-    }
-
-    const msgObj = {
-      id: 'msg-' + Date.now(),
-      type: 'text',
-      text: replyText,
-      sender: 'received',
-      time: this.getFormattedTime(),
-      mode6: this.is6DaysMode
-    };
-
-    this.renderMessage(msgObj);
-    this.check6DaysKeyword(replyText, 'received');
-
-    if (window.notificationManager) {
-      window.notificationManager.sendDisguisedNotification();
+    if (this.channel) {
+      this.channel.postMessage({
+        type: 'NEW_MESSAGE',
+        senderId: this.mySessionId,
+        msg: msgObj
+      });
     }
   }
 
   check6DaysKeyword(text, sender) {
     if (this.is6DaysMode) return;
 
-    const lower = text.toLowerCase();
+    const lower = (text || '').toLowerCase();
     if (lower.includes('6 أيام') || lower.includes('6 ايام')) {
       if (sender === 'sent') this.userKwMentioned = true;
       if (sender === 'received') this.partnerKwMentioned = true;
 
-      if (this.userKwMentioned && this.partnerKwMentioned) {
+      if (this.userKwMentioned || this.partnerKwMentioned) {
         setTimeout(() => {
           this.secretModal.classList.add('active');
         }, 600);
@@ -254,7 +279,7 @@ class AntikaChatEngine {
     }
   }
 
-  activate6DaysMode() {
+  activate6DaysMode(isRemote = false) {
     this.secretModal.classList.remove('active');
     this.is6DaysMode = true;
 
@@ -291,6 +316,9 @@ class AntikaChatEngine {
   }
 
   renderMessage(msg) {
+    const emptyBanner = document.getElementById('empty-chat-banner');
+    if (emptyBanner) emptyBanner.remove();
+
     const bubble = document.createElement('div');
     bubble.className = `message-bubble ${msg.sender} ${msg.mode6 ? 'msg-mode-6' : ''}`;
     bubble.id = msg.id;
@@ -319,7 +347,16 @@ class AntikaChatEngine {
         </div>
         <div class="message-time">${msg.time} <i class="fa-solid fa-check-double"></i></div>
       `;
-    } else if (msg.type === 'image') {
+    } else if (msg.type === 'image_regular') {
+      // Standard Regular Image (Visible permanently in chat)
+      bubble.innerHTML = `
+        <div style="border-radius: var(--radius-md); overflow: hidden; max-width: 230px;">
+          <img src="${msg.media}" style="width: 100%; border-radius: var(--radius-md); display: block; border: 1px solid rgba(230, 200, 117, 0.3);">
+        </div>
+        <div class="message-time">${msg.time} <i class="fa-solid fa-check-double"></i></div>
+      `;
+    } else if (msg.type === 'image_timed' || msg.type === 'image') {
+      // Self-destructing timed photo (5 seconds view once)
       bubble.innerHTML = `
         <div class="timed-media-card" onclick="window.antikaChatEngine.openViewOnceImage('${msg.media}')">
           <div class="media-lock-overlay">
@@ -444,19 +481,27 @@ class AntikaChatEngine {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        this.sendMessage(null, false, event.target.result);
+        this.sendMessage(null, false, event.target.result, this.isTimedImageSelected);
       };
       reader.readAsDataURL(file);
     }
   }
 
-  loadDefaultWelcomeMessages() {
-    const initialMsgs = [
-      { id: 'w1', type: 'text', text: 'أهلاً بك في Antika ✨ التطبيق المصمم خصيصاً ليجمع قلوبنا عبر المسافات.', sender: 'received', time: '10:00 ص' },
-      { id: 'w2', type: 'text', text: 'ملاحظة سرية: اكتب كلمة "6 أيام" للطرف الآخر لتفعيل وضع الشات المؤقت 🤫', sender: 'received', time: '10:01 ص' }
-    ];
-
-    initialMsgs.forEach(m => this.renderMessage(m));
+  checkInitialEmptyState() {
+    const savedContacts = JSON.parse(localStorage.getItem('antika_contacts_list') || '[]');
+    if (savedContacts.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.id = 'empty-chat-banner';
+      emptyDiv.style.cssText = 'text-align: center; padding: 40px 20px; color: var(--text-muted); margin: auto 0;';
+      emptyDiv.innerHTML = `
+        <i class="fa-solid fa-user-plus" style="font-size: 2.8rem; color: var(--accent-gold); margin-bottom: 14px; opacity: 0.85;"></i>
+        <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 6px;">لا توجد محادثة نشطة بعد</h3>
+        <p style="font-size: 0.84rem; line-height: 1.5; max-width: 280px; margin: 0 auto 16px auto;">
+          اضغط على زر الاقتران ( <i class="fa-solid fa-user-plus" style="color: var(--accent-gold);"></i> ) بأعلى الشاشة لإرسال رقمك كدعوة وتسمية شريكك للبدء.
+        </p>
+      `;
+      this.chatList.appendChild(emptyDiv);
+    }
   }
 
   getFormattedTime() {
