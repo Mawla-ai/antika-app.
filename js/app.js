@@ -36,7 +36,9 @@ class AntikaAppController {
     this.isSettingUpPin = !this.storedPin;
 
     this.longPressTimer = null;
-    this.longPressDuration = 1500; // 1.5 seconds
+    this.longPressDuration = 800; // 0.8 seconds for smooth long press on mobile
+    this.clickCount = 0;
+    this.clickResetTimer = null;
 
     // Contacts Storage
     this.myInviteCode = this.getOrGenerateInviteCode();
@@ -58,8 +60,9 @@ class AntikaAppController {
       const hours = now.getHours();
       const minutes = now.getMinutes();
       const seconds = now.getSeconds();
+      const millis = now.getMilliseconds();
 
-      const secondDeg = (seconds / 60) * 360;
+      const secondDeg = ((seconds + millis / 1000) / 60) * 360;
       const minuteDeg = ((minutes + seconds / 60) / 60) * 360;
       const hourDeg = (((hours % 12) + minutes / 60) / 12) * 360;
 
@@ -71,18 +74,24 @@ class AntikaAppController {
       const mStr = String(minutes).padStart(2, '0');
       const sStr = String(seconds).padStart(2, '0');
       if (this.digitalClock) this.digitalClock.textContent = `${hStr}:${mStr}:${sStr}`;
+
+      requestAnimationFrame(updateClock);
     };
 
-    updateClock();
-    setInterval(updateClock, 1000);
+    requestAnimationFrame(updateClock);
   }
 
-  /* 2. Camouflage Clock Long-Press Trigger */
+  /* 2. Camouflage Clock Touch & Long-Press Trigger */
   bindLongPressEvents() {
+    const triggerUnlockModal = () => {
+      if (navigator.vibrate) navigator.vibrate(80);
+      this.openPasscodeModal();
+    };
+
     const startPress = (e) => {
-      e.preventDefault();
+      if (this.longPressTimer) clearTimeout(this.longPressTimer);
       this.longPressTimer = setTimeout(() => {
-        this.openPasscodeModal();
+        triggerUnlockModal();
       }, this.longPressDuration);
     };
 
@@ -93,13 +102,35 @@ class AntikaAppController {
       }
     };
 
-    this.clockTrigger.addEventListener('mousedown', startPress);
-    this.clockTrigger.addEventListener('mouseup', cancelPress);
-    this.clockTrigger.addEventListener('mouseleave', cancelPress);
+    // Pointer & Touch Events for mobile Android WebViews
+    if ('PointerEvent' in window) {
+      this.clockTrigger.addEventListener('pointerdown', startPress);
+      this.clockTrigger.addEventListener('pointerup', cancelPress);
+      this.clockTrigger.addEventListener('pointercancel', cancelPress);
+    } else {
+      this.clockTrigger.addEventListener('mousedown', startPress);
+      this.clockTrigger.addEventListener('mouseup', cancelPress);
+      this.clockTrigger.addEventListener('mouseleave', cancelPress);
 
-    this.clockTrigger.addEventListener('touchstart', startPress, { passive: false });
-    this.clockTrigger.addEventListener('touchend', cancelPress);
-    this.clockTrigger.addEventListener('touchcancel', cancelPress);
+      this.clockTrigger.addEventListener('touchstart', startPress, { passive: true });
+      this.clockTrigger.addEventListener('touchend', cancelPress);
+      this.clockTrigger.addEventListener('touchcancel', cancelPress);
+    }
+
+    // Alternative Instant Trigger: 3 Quick Taps on the Clock
+    this.clockTrigger.addEventListener('click', () => {
+      this.clickCount++;
+      clearTimeout(this.clickResetTimer);
+      if (this.clickCount >= 3) {
+        this.clickCount = 0;
+        cancelPress();
+        triggerUnlockModal();
+      } else {
+        this.clickResetTimer = setTimeout(() => {
+          this.clickCount = 0;
+        }, 800);
+      }
+    });
   }
 
   /* 3. Passcode Setup & Verification Modal */
@@ -222,12 +253,10 @@ class AntikaAppController {
   }
 
   regenerateInviteCode() {
-    // Record old used code to prevent reuse by anyone
     const usedCodes = JSON.parse(localStorage.getItem('antika_used_codes') || '[]');
     usedCodes.push(this.myInviteCode);
     localStorage.setItem('antika_used_codes', JSON.stringify(usedCodes));
 
-    // Generate brand new unique invite code
     this.myInviteCode = 'ANT-' + Math.floor(100000 + Math.random() * 900000);
     localStorage.setItem('antika_my_invite_code', this.myInviteCode);
     this.myInviteNumberDisplay.textContent = this.myInviteCode;
@@ -237,7 +266,6 @@ class AntikaAppController {
     const saved = localStorage.getItem('antika_contacts_list');
     if (saved) return JSON.parse(saved);
 
-    // Default partner contact
     return [
       {
         id: 'c1',
@@ -295,14 +323,12 @@ class AntikaAppController {
           return;
         }
 
-        // Check if code was already used
         const usedCodes = JSON.parse(localStorage.getItem('antika_used_codes') || '[]');
         if (usedCodes.includes(enteredCode)) {
           alert('هذا الرقم مستخدم سابقاً وغير صالح. يرجى طلب رقم دعوة جديد من الشريك.');
           return;
         }
 
-        // Add partner contact
         const newContact = {
           id: 'c-' + Date.now(),
           name: 'الشريك المقترن (' + enteredCode.substring(4, 8) + ') ❤️',
@@ -315,7 +341,6 @@ class AntikaAppController {
         this.contacts.unshift(newContact);
         this.saveContacts();
 
-        // Single-Use Rule: Regenerate your invite code so no one else can reuse the previous one
         this.regenerateInviteCode();
 
         this.addContactModal.classList.remove('active');

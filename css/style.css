@@ -43,7 +43,7 @@ body {
   direction: rtl;
 }
 
-/* Application Viewport Container (Mobile First Container) */
+/* Application Viewport Container */
 #app-viewport {
   width: 100%;
   max-width: 480px;
@@ -68,7 +68,6 @@ body {
 
 /* =========================================================
    1. CAMOUFLAGE CLOCK SCREEN (AYA SCREEN)
-   Strict Requirement: No text hints or instructions!
    ========================================================= */
 #camouflage-screen {
   position: absolute;
@@ -100,9 +99,9 @@ body {
   justify-content: center;
   align-items: center;
   cursor: pointer;
+  touch-action: none;
 }
 
-/* Clock Dial Markers */
 .clock-dial {
   position: absolute;
   inset: 12px;
@@ -124,7 +123,6 @@ body {
 .num-6  { top: 88%; left: 50%; }
 .num-9  { top: 50%; left: 12%; }
 
-/* AYA Center Emblem */
 .aya-brand-center {
   position: absolute;
   top: 36%;
@@ -156,9 +154,11 @@ body {
   position: absolute;
   bottom: 50%;
   left: 50%;
-  transform-origin: bottom center;
+  -webkit-transform-origin: 50% 100%;
+  transform-origin: 50% 100%;
   border-radius: 4px;
   z-index: 5;
+  will-change: transform;
 }
 
 .hour-hand {
@@ -212,9 +212,9 @@ body {
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 200;
-  background: rgba(5, 7, 12, 0.85);
-  backdrop-filter: blur(12px);
+  z-index: 9999;
+  background: rgba(5, 7, 12, 0.88);
+  backdrop-filter: blur(14px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -308,7 +308,7 @@ body {
 }
 
 /* =========================================================
-   3. MAIN APPLICATION NAVIGATION (WHATSAPP TAB BAR)
+   3. MAIN APPLICATION NAVIGATION
    ========================================================= */
 #main-app {
   flex: 1;
@@ -391,9 +391,7 @@ body {
   display: flex;
 }
 
-/* =========================================================
-   4. CHAT VIEW HEADER & BODY
-   ========================================================= */
+/* Header & Chat Elements */
 .app-header {
   height: 64px;
   background: rgba(15, 19, 28, 0.95);
@@ -406,80 +404,15 @@ body {
   z-index: 50;
 }
 
-.partner-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.avatar-wrapper {
-  position: relative;
-  width: 44px;
-  height: 44px;
-}
-
-.partner-avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--accent-gold);
-}
-
-.status-pulse {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 11px;
-  height: 11px;
-  background: #00e676;
-  border: 2px solid var(--bg-secondary);
-  border-radius: 50%;
-  box-shadow: 0 0 8px #00e676;
-}
-
-.partner-details h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.partner-details span {
-  font-size: 0.75rem;
-  color: var(--accent-cyan);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--accent-gold);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: var(--transition);
-}
-
-.icon-btn:hover, .icon-btn:active {
-  background: var(--accent-gold);
-  color: #000;
-  transform: scale(1.05);
-}
-
-.icon-btn.cyan-glow {
-  color: var(--accent-cyan);
-  border-color: var(--border-cyan);
-}
+.partner-info { display: flex; align-items: center; gap: 12px; }
+.avatar-wrapper { position: relative; width: 44px; height: 44px; }
+.partner-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-gold); }
+.status-pulse { position: absolute; bottom: 2px; right: 2px; width: 11px; height: 11px; background: #00e676; border: 2px solid var(--bg-secondary); border-radius: 50%; box-shadow: 0 0 8px #00e676; }
+.partner-details h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+.partner-details span { font-size: 0.75rem; color: var(--accent-cyan); }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.icon-btn { width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--accent-gold); display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1rem; transition: var(--transition); }
+.icon-btn.cyan-glow { color: var(--accent-cyan); border-color: var(--border-cyan); }
 
 /* Secret Vault Banner */
 .secret-vault-banner {
@@ -498,25 +431,8 @@ body {
   100% { box-shadow: 0 4px 25px rgba(255, 215, 0, 0.35); }
 }
 
-.vault-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent-gold-bright);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.vault-timer {
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 3px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--accent-gold);
-}
+.vault-info { display: flex; align-items: center; gap: 8px; color: var(--accent-gold-bright); font-size: 0.85rem; font-weight: 700; }
+.vault-timer { font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: #ffffff; background: rgba(0, 0, 0, 0.5); padding: 3px 10px; border-radius: 12px; border: 1px solid var(--accent-gold); }
 
 /* Chat Container */
 .chat-container {
@@ -533,296 +449,38 @@ body {
   background: radial-gradient(circle at center, rgba(35, 25, 5, 0.6) 0%, rgba(7, 9, 14, 0.95) 100%);
 }
 
-.date-divider {
-  text-align: center;
-  margin: 10px 0;
-}
-
-.date-divider span {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.message-bubble {
-  max-width: 78%;
-  padding: 12px 16px;
-  border-radius: 20px;
-  position: relative;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  word-wrap: break-word;
-  animation: fadeInMsg 0.3s ease-out;
-}
-
-@keyframes fadeInMsg {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.message-bubble.sent {
-  align-self: flex-start;
-  background: linear-gradient(135deg, #1c263b 0%, #151d2f 100%);
-  border: 1px solid rgba(0, 242, 255, 0.2);
-  border-bottom-right-radius: 4px;
-  color: #ffffff;
-}
-
-.message-bubble.received {
-  align-self: flex-end;
-  background: linear-gradient(135deg, #2a2211 0%, #1a150a 100%);
-  border: 1px solid rgba(230, 200, 117, 0.3);
-  border-bottom-left-radius: 4px;
-  color: #fff9e6;
-}
-
-.message-time {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
+.date-divider { text-align: center; margin: 10px 0; }
+.date-divider span { font-size: 0.72rem; color: var(--text-muted); background: rgba(255, 255, 255, 0.05); padding: 4px 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.message-bubble { max-width: 78%; padding: 12px 16px; border-radius: 20px; position: relative; font-size: 0.95rem; line-height: 1.45; word-wrap: break-word; animation: fadeInMsg 0.3s ease-out; }
+.message-bubble.sent { align-self: flex-start; background: linear-gradient(135deg, #1c263b 0%, #151d2f 100%); border: 1px solid rgba(0, 242, 255, 0.2); border-bottom-right-radius: 4px; color: #ffffff; }
+.message-bubble.received { align-self: flex-end; background: linear-gradient(135deg, #2a2211 0%, #1a150a 100%); border: 1px solid rgba(230, 200, 117, 0.3); border-bottom-left-radius: 4px; color: #fff9e6; }
+.message-time { font-size: 0.68rem; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 
 /* Chat Input Bar */
-.chat-input-bar {
-  background: rgba(15, 19, 28, 0.95);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid var(--border-gold);
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 50;
-}
+.chat-input-bar { background: rgba(15, 19, 28, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--border-gold); padding: 12px 14px; display: flex; align-items: center; gap: 10px; z-index: 50; }
+.input-wrapper { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; display: flex; align-items: center; padding: 0 14px; transition: var(--transition); }
+.chat-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-main); font-family: inherit; font-size: 0.95rem; padding: 12px 0; }
+.attach-btn { background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px; }
+.send-btn { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%); border: none; color: #000; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 0 15px rgba(230, 200, 117, 0.3); }
 
-.input-wrapper {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  transition: var(--transition);
-}
+/* Contacts List & FAB */
+.contacts-header { padding: 16px; background: rgba(15, 19, 28, 0.8); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.contacts-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--accent-gold); }
+.contacts-list { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.contact-card { background: var(--bg-card); border: 1px solid rgba(230, 200, 117, 0.15); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: var(--transition); }
+.contact-card-info { display: flex; align-items: center; gap: 14px; }
+.contact-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-gold); }
+.contact-details h4 { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+.contact-code-badge { font-family: 'Outfit', monospace; font-size: 0.76rem; color: var(--accent-cyan); background: rgba(0, 242, 255, 0.1); padding: 2px 8px; border-radius: 8px; display: inline-block; }
+.contact-status-online { width: 10px; height: 10px; border-radius: 50%; background: #00e676; box-shadow: 0 0 8px #00e676; }
+.fab-add-contact { position: absolute; bottom: 24px; left: 24px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%); border: none; color: #000; font-size: 1.6rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 0 25px rgba(230, 200, 117, 0.4); transition: var(--transition); z-index: 80; }
 
-.input-wrapper:focus-within {
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 12px rgba(230, 200, 117, 0.2);
-}
-
-.chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-main);
-  font-family: inherit;
-  font-size: 0.95rem;
-  padding: 12px 0;
-}
-
-.chat-input::placeholder {
-  color: var(--text-muted);
-}
-
-.attach-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px;
-}
-
-.send-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
-  border: none;
-  color: #000;
-  font-size: 1.1rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  box-shadow: 0 0 15px rgba(230, 200, 117, 0.3);
-}
-
-/* =========================================================
-   5. WHATSAPP-STYLE CONTACTS LIST & FLOATING (+) BUTTON
-   ========================================================= */
-.contacts-header {
-  padding: 16px;
-  background: rgba(15, 19, 28, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.contacts-header h2 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent-gold);
-}
-
-.contacts-list {
-  flex: 1;
-  padding: 14px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.contact-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(230, 200, 117, 0.15);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.contact-card:hover, .contact-card:active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent-gold);
-  transform: translateY(-2px);
-}
-
-.contact-card-info {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.contact-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--accent-gold);
-}
-
-.contact-details h4 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 4px;
-}
-
-.contact-code-badge {
-  font-family: 'Outfit', monospace;
-  font-size: 0.76rem;
-  color: var(--accent-cyan);
-  background: rgba(0, 242, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 8px;
-  display: inline-block;
-}
-
-.contact-status-online {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #00e676;
-  box-shadow: 0 0 8px #00e676;
-}
-
-/* Floating Action Button (+) */
-.fab-add-contact {
-  position: absolute;
-  bottom: 24px;
-  left: 24px;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
-  border: none;
-  color: #000;
-  font-size: 1.6rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  box-shadow: 0 0 25px rgba(230, 200, 117, 0.4);
-  transition: var(--transition);
-  z-index: 80;
-}
-
-.fab-add-contact:active {
-  transform: scale(0.9);
-}
-
-/* =========================================================
-   6. MODAL & CALL OVERLAYS
-   ========================================================= */
-.pairing-card {
-  width: 90%;
-  max-width: 360px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-cyan);
-  border-radius: var(--radius-lg);
-  padding: 26px 20px;
-  text-align: center;
-  box-shadow: var(--shadow-cyan);
-}
-
-.code-display {
-  font-family: 'Outfit', monospace;
-  font-size: 1.7rem;
-  letter-spacing: 5px;
-  font-weight: 700;
-  color: var(--accent-cyan);
-  background: rgba(0, 242, 255, 0.08);
-  padding: 12px;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--accent-cyan);
-  margin: 14px 0;
-}
-
-.action-btn-gold {
-  width: 100%;
-  padding: 14px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
-  border: none;
-  color: #000;
-  font-size: 1rem;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  margin-top: 10px;
-  box-shadow: var(--shadow-gold);
-}
-
-#call-modal {
-  position: absolute;
-  inset: 0;
-  z-index: 300;
-  background: #05070a;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 40px 24px;
-  opacity: 0;
-  pointer-events: none;
-  transition: var(--transition);
-}
-
-#call-modal.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
+/* Modals & Call Overlays */
+.pairing-card { width: 90%; max-width: 360px; background: var(--bg-secondary); border: 1px solid var(--border-cyan); border-radius: var(--radius-lg); padding: 26px 20px; text-align: center; box-shadow: var(--shadow-cyan); }
+.code-display { font-family: 'Outfit', monospace; font-size: 1.7rem; letter-spacing: 5px; font-weight: 700; color: var(--accent-cyan); background: rgba(0, 242, 255, 0.08); padding: 12px; border-radius: var(--radius-md); border: 1px dashed var(--accent-cyan); margin: 14px 0; }
+.action-btn-gold { width: 100%; padding: 14px; border-radius: 20px; background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%); border: none; color: #000; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 10px; box-shadow: var(--shadow-gold); }
+#call-modal { position: absolute; inset: 0; z-index: 99999; background: #05070a; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 24px; opacity: 0; pointer-events: none; transition: var(--transition); }
+#call-modal.active { opacity: 1; pointer-events: auto; }
 .call-header { text-align: center; }
 .call-partner-name { font-size: 1.4rem; font-weight: 700; color: var(--text-main); margin-top: 14px; }
 .call-status-text { font-size: 0.88rem; color: var(--accent-cyan); margin-top: 4px; }
