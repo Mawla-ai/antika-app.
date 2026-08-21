@@ -1,13 +1,17 @@
 {
   "name": "Antika - لأن البعد لا يفرق بين القلوب",
   "short_name": "Antika",
-  "description": "تطبيق محادثة فاخر وخاص للكابلز",
-  "start_url": "./index.html",
+  "description": "تطبيق محادثة فاخر وخاص للأزواج — تواصل آمن وسري مع من تحب",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen"],
-  "background_color": "#0b0e14",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "background_color": "#07090e",
   "theme_color": "#0b0e14",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["social", "communication"],
   "icons": [
     {
       "src": "assets/logo_192.png",
@@ -33,5 +37,15 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "screenshots": [],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
