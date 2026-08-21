@@ -1,7 +1,7 @@
-/* Antika - App Controller v2.0
-   - Profile system (name + photo like WhatsApp)
-   - Firebase partner discovery
-   - Settings with change passcode
+/* Antika - App Controller v3.0
+   - Real-time profile synchronization with image compression
+   - Passcode protection with camouflage clock
+   - WhatsApp-like home screen & contact management
 */
 class AntikaAppController {
   constructor() {
@@ -60,8 +60,11 @@ class AntikaAppController {
     this.registerServiceWorker();
     this.renderChatList();
 
-    // Sync profile to Firebase after realtime engine loads
-    setTimeout(() => this.syncProfileToFirebase(), 1000);
+    // Initial Firebase profile sync & contact watchers
+    setTimeout(() => {
+      this.syncProfileToFirebase();
+      this.watchAllContactsProfiles();
+    }, 1200);
   }
 
   /* ── Clock ─────────────────────────────────────────────── */
@@ -218,6 +221,7 @@ class AntikaAppController {
     this.myInviteCode = 'ANT-' + Math.floor(100000 + Math.random() * 900000);
     localStorage.setItem('antika_my_invite_code', this.myInviteCode);
     if (this.myInviteNumberDisplay) this.myInviteNumberDisplay.textContent = this.myInviteCode;
+    this.syncProfileToFirebase();
   }
 
   /* ── Profile System ────────────────────────────────────── */
@@ -242,21 +246,39 @@ class AntikaAppController {
     });
   }
 
-  onPartnerProfileReceived(memberData) {
-    // Called when partner writes their profile to our Firebase channel
-    if (!memberData || !memberData.channelId) return;
-    const contact = this.contacts.find(c => c.code === memberData.channelId);
+  watchAllContactsProfiles() {
+    if (!window.antikaRealtime) return;
+    this.contacts.forEach(c => {
+      if (c.code) {
+        window.antikaRealtime.watchPartnerProfile(c.code);
+      }
+    });
+  }
+
+  onPartnerProfileReceived(partnerProfile, partnerCode) {
+    if (!partnerProfile) return;
+    const contact = this.contacts.find(c => c.code === partnerCode);
     if (contact) {
-      if (memberData.name) contact.name = memberData.name;
-      if (memberData.photo) contact.avatar = memberData.photo;
-      this.saveContacts();
-      this.renderChatList();
-      // Update chat header if currently open
-      if (this.activeContactId === contact.id) {
-        const nameEl = document.getElementById('active-partner-name');
-        const avatarEl = document.getElementById('chat-partner-avatar');
-        if (nameEl && memberData.name) nameEl.textContent = memberData.name;
-        if (avatarEl && memberData.photo) avatarEl.src = memberData.photo;
+      let updated = false;
+      if (partnerProfile.name && contact.name !== partnerProfile.name) {
+        contact.name = partnerProfile.name;
+        updated = true;
+      }
+      if (partnerProfile.photo && contact.avatar !== partnerProfile.photo) {
+        contact.avatar = partnerProfile.photo;
+        updated = true;
+      }
+
+      if (updated) {
+        this.saveContacts();
+        this.renderChatList();
+
+        if (this.activeContactId === contact.id) {
+          const nameEl = document.getElementById('active-partner-name');
+          const avatarEl = document.getElementById('chat-partner-avatar');
+          if (nameEl) nameEl.textContent = contact.name;
+          if (avatarEl && contact.avatar) avatarEl.src = contact.avatar;
+        }
       }
     }
   }
@@ -272,6 +294,7 @@ class AntikaAppController {
     contact.lastTime = msg.time;
     if (msg.sender === 'received') contact.unread = (contact.unread || 0) + 1;
     this.saveContacts();
+    this.renderChatList();
   }
 
   /* ── Chat List Rendering ───────────────────────────────── */
@@ -332,14 +355,10 @@ class AntikaAppController {
     // Load messages from storage + setup Firebase
     window.antikaChatEngine?.loadMessages(contact.id, contact.code);
 
-    // Announce our profile to partner via Firebase
-    setTimeout(() => {
-      window.antikaRealtime?.announceToPartner({
-        name: this.myProfile.name || 'مستخدم Antika',
-        photo: this.myProfile.photo || null,
-        channelId: this.myInviteCode
-      });
-    }, 500);
+    // Watch partner's profile in real time
+    if (contact.code) {
+      window.antikaRealtime?.watchPartnerProfile(contact.code);
+    }
 
     // Navigate
     this._showScreen(this.chatScreen);
@@ -423,7 +442,7 @@ class AntikaAppController {
     document.getElementById('confirm-add-partner-btn')?.addEventListener('click', () => {
       const code = (this.partnerInviteInput?.value || '').trim().toUpperCase();
       const name = (this.partnerNicknameInput?.value || '').trim();
-      const partnerName = name || `الشريك (${code.slice(4, 8) || '❤️'})`;
+      const fallbackName = name || `الشريك (${code.slice(4, 8) || '❤️'})`;
 
       if (!code) { alert('يرجى كتابة رقم دعوة الشريك أولاً'); return; }
 
@@ -433,23 +452,12 @@ class AntikaAppController {
       const now = new Date();
       const timeStr = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2,'0')} ${now.getHours() >= 12 ? 'م' : 'ص'}`;
 
-      // Try to load partner's profile photo from Firebase
-      const tryLoadPhoto = (callback) => {
-        if (window.antikaRealtime?.isConnected()) {
-          window.antikaRealtime.loadProfile(code, (profile) => {
-            callback(profile?.photo || 'assets/logo_192.png', profile?.name || partnerName);
-          });
-        } else {
-          callback('assets/logo_192.png', partnerName);
-        }
-      };
-
-      tryLoadPhoto((photo, resolvedName) => {
+      const proceedAdd = (partnerAvatar, resolvedName) => {
         const newContact = {
           id: 'c-' + Date.now(),
           name: resolvedName,
-          code,              // ← partner's invite code = channel to send TO
-          avatar: photo,
+          code,
+          avatar: partnerAvatar,
           lastMsg: 'تم الاقتران بنجاح! ابدآ المحادثة ❤️',
           lastTime: timeStr,
           unread: 0,
@@ -463,8 +471,22 @@ class AntikaAppController {
         this.addContactModal.classList.remove('active');
         this.renderChatList();
 
+        // Start real-time watcher on this new partner's profile
+        window.antikaRealtime?.watchPartnerProfile(code);
+
         setTimeout(() => this.openChat(newContact), 300);
-      });
+      };
+
+      // Try loading profile from Firebase first
+      if (window.antikaRealtime?.isConnected()) {
+        window.antikaRealtime.loadProfile(code, (remoteProfile) => {
+          const finalName = name || remoteProfile?.name || fallbackName;
+          const finalAvatar = remoteProfile?.photo || 'assets/logo_192.png';
+          proceedAdd(finalAvatar, finalName);
+        });
+      } else {
+        proceedAdd('assets/logo_192.png', fallbackName);
+      }
     });
 
     document.getElementById('open-add-contact-btn')?.addEventListener('click', () => {
@@ -477,28 +499,25 @@ class AntikaAppController {
 
   /* ── Settings ──────────────────────────────────────────── */
   bindSettingsEvents() {
-    // Profile name edit
     document.getElementById('profile-name-input')?.addEventListener('blur', (e) => {
       const name = e.target.value.trim();
       if (name) {
         this.saveMyProfile({ ...this.myProfile, name });
-        this.showToast('✅ تم حفظ الاسم');
+        this.showToast('✅ تم حفظ الاسم وتحديثه للشريك');
       }
     });
 
-    // Profile photo
+    // Profile photo upload with compression
     document.getElementById('profile-photo-input')?.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const photo = ev.target.result;
-        this.saveMyProfile({ ...this.myProfile, photo });
+
+      this._compressProfileImage(file, 240, 0.8, (compressedPhoto) => {
+        this.saveMyProfile({ ...this.myProfile, photo: compressedPhoto });
         const preview = document.getElementById('profile-photo-preview');
-        if (preview) preview.src = photo;
-        this.showToast('✅ تم تحديث الصورة الشخصية');
-      };
-      reader.readAsDataURL(file);
+        if (preview) preview.src = compressedPhoto;
+        this.showToast('✅ تم تحديث صورتك الشخصية للشريك');
+      });
       e.target.value = '';
     });
 
@@ -506,12 +525,10 @@ class AntikaAppController {
       document.getElementById('profile-photo-input')?.click();
     });
 
-    // Change passcode
     document.getElementById('change-passcode-btn')?.addEventListener('click', () => {
       this.openPasscodeModal(true);
     });
 
-    // Export
     document.getElementById('export-chat-btn')?.addEventListener('click', () => {
       if (!this.activeContactId) { this.showToast('افتح محادثة أولاً'); return; }
       const msgs = JSON.parse(localStorage.getItem(`antika_msgs_${this.activeContactId}`) || '[]');
@@ -519,7 +536,6 @@ class AntikaAppController {
       navigator.clipboard.writeText(text).then(() => this.showToast('✅ تم نسخ المحادثة'));
     });
 
-    // Reset
     document.getElementById('reset-app-btn')?.addEventListener('click', () => {
       if (confirm('⚠️ سيتم مسح جميع البيانات والرسائل. هل أنت متأكد؟')) {
         const keys = [];
@@ -532,8 +548,41 @@ class AntikaAppController {
       }
     });
 
-    // Load profile into settings
     this._loadProfileUI();
+  }
+
+  _compressProfileImage(file, maxDimension, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        callback(dataUrl);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   _loadProfileUI() {
@@ -542,7 +591,6 @@ class AntikaAppController {
     if (nameInput && this.myProfile.name) nameInput.value = this.myProfile.name;
     if (photoPreview && this.myProfile.photo) photoPreview.src = this.myProfile.photo;
 
-    // Show my invite code
     const myCodeEl = document.getElementById('my-profile-invite-code');
     if (myCodeEl) myCodeEl.textContent = this.myInviteCode;
   }
@@ -560,7 +608,6 @@ class AntikaAppController {
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2500);
   }
 
-  /* ── Service Worker ────────────────────────────────────── */
   registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')

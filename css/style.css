@@ -938,3 +938,126 @@ body {
 /* Firebase status indicator */
 .firebase-status-wrap { display: flex; align-items: center; gap: 4px; }
 
+/* =========================================================
+   NEW v3.0 - Incoming Call Overlay & Animations
+   ========================================================= */
+.incoming-call-card {
+  width: 90%;
+  max-width: 320px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent-gold);
+  border-radius: var(--radius-lg);
+  padding: 30px 20px;
+  text-align: center;
+  box-shadow: 0 0 35px rgba(230, 200, 117, 0.4);
+  animation: incomingPop 0.3s ease-out;
+}
+
+@keyframes incomingPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.incoming-call-pulse {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 16px auto;
+}
+
+.incoming-call-pulse::before,
+.incoming-call-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-gold);
+  animation: callRipple 1.6s infinite ease-out;
+  pointer-events: none;
+}
+
+.incoming-call-pulse::after {
+  animation-delay: 0.8s;
+}
+
+@keyframes callRipple {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.incoming-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--accent-gold);
+}
+
+.incoming-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.incoming-type {
+  font-size: 0.88rem;
+  color: var(--accent-cyan);
+  margin-bottom: 28px;
+}
+
+.incoming-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 36px;
+}
+
+.incoming-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.incoming-btn i {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  transition: transform 0.15s;
+}
+
+.incoming-btn:active i {
+  transform: scale(0.9);
+}
+
+.incoming-btn.accept-call i {
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(37, 211, 102, 0.5);
+  animation: acceptPulse 1s infinite alternate;
+}
+
+.incoming-btn.reject-call i {
+  background: var(--accent-rose);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(255, 71, 126, 0.5);
+}
+
+@keyframes acceptPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+

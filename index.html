@@ -383,7 +383,7 @@
   </div><!-- /#main-app -->
 
   <!-- =========================================================
-       8. CALL OVERLAY
+       8. CALL OVERLAY (ACTIVE CALL)
        ========================================================= -->
   <div id="call-modal">
     <div class="call-video-grid">
@@ -410,6 +410,34 @@
         onclick="window.antikaCallEngine && window.antikaCallEngine.toggleCamera(this)">
         <i class="fa-solid fa-video"></i>
       </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       9. INCOMING CALL MODAL (RINGS ON RECEIVING DEVICE)
+       ========================================================= -->
+  <div id="incoming-call-modal" class="modal-backdrop">
+    <div class="incoming-call-card">
+      <div class="incoming-call-pulse">
+        <img id="incoming-caller-avatar" src="assets/logo_192.png" class="incoming-avatar">
+      </div>
+      <h3 id="incoming-caller-name" class="incoming-name">الشريك ❤️</h3>
+      <div id="incoming-call-type-label" class="incoming-type">مكالمة واردة... 📞</div>
+
+      <div class="incoming-actions">
+        <button class="incoming-btn accept-call"
+          onclick="window.antikaCallEngine && window.antikaCallEngine.acceptIncomingCall()"
+          title="قبول المكالمة">
+          <i class="fa-solid fa-phone"></i>
+          <span>رد</span>
+        </button>
+        <button class="incoming-btn reject-call"
+          onclick="window.antikaCallEngine && window.antikaCallEngine.rejectIncomingCall()"
+          title="رفض المكالمة">
+          <i class="fa-solid fa-phone-slash"></i>
+          <span>رفض</span>
+        </button>
+      </div>
     </div>
   </div>
 

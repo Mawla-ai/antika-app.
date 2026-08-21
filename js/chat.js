@@ -1,8 +1,8 @@
-/* Antika - Chat Engine v2.0
-   - Firebase real-time sync (cross-device)
-   - WhatsApp-style voice recording (hold + slide to cancel)
-   - Play/Pause voice player with progress bar
-   - Removed earpiece toggle (system handles routing)
+/* Antika - Chat Engine v3.0
+   - Multi-device voice notes via Base64 DataURL audio
+   - Automatic Canvas Image Compression for fast & reliable Firebase delivery
+   - Persistent 6-Days Mode across sessions & reloads
+   - Interactive Voice Player with progress bar & waveform
 */
 class AntikaChatEngine {
   constructor() {
@@ -12,8 +12,6 @@ class AntikaChatEngine {
     this.voiceRecBtn = document.getElementById('voice-rec-btn');
     this.recordingBar = document.getElementById('recording-bar');
     this.recTimerDisplay = document.getElementById('rec-timer-display');
-    // Note: cancel-rec-btn removed — cancel is via slide-left gesture
-
 
     // Attach & Image type
     this.attachImgBtn = document.getElementById('attach-image-btn');
@@ -31,14 +29,13 @@ class AntikaChatEngine {
     this.secretBanner = document.getElementById('secret-vault-banner');
     this.vaultTimerDisplay = document.getElementById('vault-timer-display');
 
-    // View Once
+    // View Once Modal
     this.viewOnceModal = document.getElementById('view-once-modal');
     this.viewOnceImgPreview = document.getElementById('view-once-img-preview');
     this.viewOnceTimerText = document.getElementById('view-once-timer-text');
 
     this.is6DaysMode = false;
     this.vaultTimer = null;
-    this.vaultSecondsLeft = 5 * 3600;
 
     // Voice recording
     this.mediaRecorder = null;
@@ -49,16 +46,12 @@ class AntikaChatEngine {
     this.recordStartX = 0;
     this.recordCancelled = false;
 
-    // 6 days keywords
-    this.userKwMentioned = false;
-    this.partnerKwMentioned = false;
-
-    // Active contact
+    // Active contact & channels
     this.activeContactId = null;
     this.myChannelId = localStorage.getItem('antika_my_invite_code');
     this.partnerChannelId = null;
 
-    // Session ID for BroadcastChannel fallback
+    // Fallback broadcast
     this.mySessionId = 'sess-' + Math.random().toString(36).substring(2, 9);
     this.channel = null;
 
@@ -66,6 +59,7 @@ class AntikaChatEngine {
     this._initFirebase();
     this.initEvents();
     this.initEmojiBar();
+    this.check6DaysActiveOnLoad();
     this.checkInitialEmptyState();
   }
 
@@ -83,7 +77,7 @@ class AntikaChatEngine {
           this.check6DaysKeyword(data.msg.text, 'received');
           window.notificationManager?.sendDisguisedNotification();
         } else if (data.type === 'ACTIVATE_6DAYS' && data.senderId !== this.mySessionId) {
-          this.activate6DaysMode(true);
+          this.activate6DaysMode(true, data.expiry);
         } else if (data.type === 'TYPING' && data.senderId !== this.mySessionId) {
           this.showTypingIndicator();
         }
@@ -102,7 +96,6 @@ class AntikaChatEngine {
         this.check6DaysKeyword(msg.text, 'received');
         window.notificationManager?.sendDisguisedNotification();
       });
-      // Setup channels if we already have an active contact
       if (this.myChannelId && this.partnerChannelId) {
         window.antikaRealtime.setupChannels(this.myChannelId, this.partnerChannelId);
       }
@@ -130,30 +123,36 @@ class AntikaChatEngine {
       <div class="date-divider"><span>الدفء ينبض هنا • Antika</span></div>`;
 
     const saved = JSON.parse(localStorage.getItem(this._storageKey()) || '[]');
-    if (saved.length === 0) {
+    const now = Date.now();
+    const expiry = parseInt(localStorage.getItem('antika_6days_expiry') || '0', 10);
+    const is6DaysExpired = expiry > 0 && now >= expiry;
+
+    const filtered = saved.filter(m => {
+      if (m.mode6 && is6DaysExpired) return false;
+      return true;
+    });
+
+    if (filtered.length !== saved.length) {
+      localStorage.setItem(this._storageKey(), JSON.stringify(filtered));
+    }
+
+    if (filtered.length === 0) {
       this.renderSystemMessage('💌 ابدأ محادثتك مع من تحب...');
     } else {
-      saved.forEach(m => this.renderMessage(m, false));
+      filtered.forEach(m => this.renderMessage(m, false));
     }
     setTimeout(() => { this.chatList.scrollTop = this.chatList.scrollHeight; }, 60);
   }
 
   persistMessage(msgObj) {
     const key = this._storageKey();
-    if (!key || msgObj.mode6) return;
-    const toSave = { ...msgObj };
-    // Don't persist blob URLs
-    if (toSave.media?.startsWith('blob:')) {
-      toSave.media = null;
-      toSave.type = 'text';
-      toSave.text = toSave.text || '🎙️ رسالة صوتية';
-    }
+    if (!key) return;
     const saved = JSON.parse(localStorage.getItem(key) || '[]');
-    saved.push(toSave);
+    saved.push(msgObj);
     localStorage.setItem(key, JSON.stringify(saved.slice(-200)));
 
-    // Update contact's last message preview
-    window.antikaAppController?.updateContactLastMsg(this.activeContactId, toSave);
+    // Update contact preview
+    window.antikaAppController?.updateContactLastMsg(this.activeContactId, msgObj);
   }
 
   clearMessages() {
@@ -180,10 +179,10 @@ class AntikaChatEngine {
     this.sendBtn.addEventListener('click', () => this.sendMessage());
     this.inputField.addEventListener('keypress', (e) => { if (e.key === 'Enter') this.sendMessage(); });
 
-    // ── WhatsApp-style Voice Record ──
+    // Voice record bind
     this._bindVoiceRecording();
 
-    // Image
+    // Image attachments
     this.attachImgBtn.addEventListener('click', () => {
       this.imageTypeModal ? this.imageTypeModal.classList.add('active') : this.fileInput.click();
     });
@@ -202,8 +201,9 @@ class AntikaChatEngine {
 
     // 6 Days Mode
     this.confirmSecretBtn.addEventListener('click', () => {
-      this.activate6DaysMode(false);
-      this.channel?.postMessage({ type: 'ACTIVATE_6DAYS', senderId: this.mySessionId });
+      const expiry = Date.now() + (5 * 3600 * 1000);
+      this.activate6DaysMode(false, expiry);
+      this.channel?.postMessage({ type: 'ACTIVATE_6DAYS', senderId: this.mySessionId, expiry });
     });
     this.cancelSecretBtn.addEventListener('click', () => this.secretModal.classList.remove('active'));
 
@@ -219,7 +219,7 @@ class AntikaChatEngine {
     if (!btn) return;
 
     const slideHint = document.getElementById('voice-slide-hint');
-    const CANCEL_THRESHOLD = -60; // px to the left
+    const CANCEL_THRESHOLD = -60;
 
     const onStart = (clientX) => {
       this.recordStartX = clientX;
@@ -254,7 +254,6 @@ class AntikaChatEngine {
       }
     };
 
-    // Touch events
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       onStart(e.touches[0].clientX);
@@ -268,7 +267,6 @@ class AntikaChatEngine {
       onEnd(e.changedTouches[0].clientX);
     }, { passive: false });
 
-    // Mouse events (desktop)
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       onStart(e.clientX);
@@ -300,28 +298,37 @@ class AntikaChatEngine {
       this.recTimerDisplay.textContent = `${m}:${s}`;
     }, 1000);
 
-    // Show inline timer in input area
     document.getElementById('text-input-wrapper').style.display = 'none';
     this.recordingBar.style.display = 'flex';
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.audioChunks = [];
-      this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      this.mediaRecorder.ondataavailable = (e) => this.audioChunks.push(e.data);
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) this.audioChunks.push(e.data);
+      };
+
       this.mediaRecorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         if (!this.recordCancelled && this.audioChunks.length) {
-          const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
-          const url = URL.createObjectURL(blob);
-          this._dispatchVoiceNote(url, this.recSeconds);
+          const blob = new Blob(this.audioChunks, { type: mimeType });
+          // Convert to Base64 DataURL so it transmits reliably to other devices
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64Audio = reader.result;
+            this._dispatchVoiceNote(base64Audio, this.recSeconds);
+          };
+          reader.readAsDataURL(blob);
         }
         this.audioChunks = [];
       };
+
       this.mediaRecorder.start();
     } catch (e) {
-      // Simulated recording (no mic access)
-      console.warn('Mic not available, simulating');
+      console.warn('Microphone error:', e);
     }
   }
 
@@ -334,9 +341,6 @@ class AntikaChatEngine {
 
     if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
       this.mediaRecorder.stop();
-    } else {
-      // Simulated voice note
-      this._dispatchVoiceNote(null, this.recSeconds || 3);
     }
   }
 
@@ -360,8 +364,8 @@ class AntikaChatEngine {
     document.getElementById('text-input-wrapper').style.display = 'flex';
   }
 
-  _dispatchVoiceNote(url, durationSeconds) {
-    this.sendMessage(null, true, url, false, durationSeconds);
+  _dispatchVoiceNote(base64Audio, durationSeconds) {
+    this.sendMessage(null, true, base64Audio, false, durationSeconds);
   }
 
   /* ── Send Message ──────────────────────────────────────── */
@@ -375,7 +379,6 @@ class AntikaChatEngine {
       this.voiceRecBtn.style.display = 'flex';
     }
 
-    // Hide emoji bar
     document.getElementById('emoji-quick-bar')?.classList.remove('active');
     document.getElementById('emoji-toggle-btn')?.classList.remove('active');
 
@@ -397,53 +400,77 @@ class AntikaChatEngine {
     this.persistMessage(msgObj);
     this.check6DaysKeyword(text, 'sent');
 
-    // Send via Firebase (cross-device)
+    // Send via Firebase
     window.antikaRealtime?.sendMessage(msgObj);
 
-    // Also send via BroadcastChannel (same-device fallback)
+    // BroadcastChannel fallback
     this.channel?.postMessage({ type: 'NEW_MESSAGE', senderId: this.mySessionId, msg: msgObj });
   }
 
   /* ── 6 Days Mode ───────────────────────────────────────── */
+  check6DaysActiveOnLoad() {
+    const expiry = parseInt(localStorage.getItem('antika_6days_expiry') || '0', 10);
+    if (expiry > Date.now()) {
+      this.activate6DaysMode(false, expiry);
+    } else if (expiry > 0) {
+      this.expire6DaysMode();
+    }
+  }
+
   check6DaysKeyword(text, sender) {
     if (this.is6DaysMode) return;
     const lower = (text || '').toLowerCase();
     if (lower.includes('6 أيام') || lower.includes('6 ايام')) {
-      if (sender === 'sent') this.userKwMentioned = true;
-      if (sender === 'received') this.partnerKwMentioned = true;
-      if (this.userKwMentioned || this.partnerKwMentioned) {
-        setTimeout(() => this.secretModal.classList.add('active'), 600);
-      }
+      setTimeout(() => this.secretModal.classList.add('active'), 600);
     }
   }
 
-  activate6DaysMode(isRemote = false) {
+  activate6DaysMode(isRemote = false, expiryTimestamp = null) {
     this.secretModal.classList.remove('active');
     this.is6DaysMode = true;
     document.getElementById('main-app').classList.add('mode-6days');
     this.secretBanner.style.display = 'flex';
-    this.vaultSecondsLeft = 5 * 3600;
+
+    const expiry = expiryTimestamp || (Date.now() + (5 * 3600 * 1000));
+    localStorage.setItem('antika_6days_expiry', expiry);
+
     clearInterval(this.vaultTimer);
-    this.vaultTimer = setInterval(() => {
-      this.vaultSecondsLeft--;
-      if (this.vaultSecondsLeft <= 0) {
+    const updateCountdown = () => {
+      const remainingMs = expiry - Date.now();
+      if (remainingMs <= 0) {
         this.expire6DaysMode();
       } else {
-        const h = String(Math.floor(this.vaultSecondsLeft / 3600)).padStart(2, '0');
-        const m = String(Math.floor((this.vaultSecondsLeft % 3600) / 60)).padStart(2, '0');
-        const s = String(this.vaultSecondsLeft % 60).padStart(2, '0');
+        const totalSecs = Math.floor(remainingMs / 1000);
+        const h = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
+        const m = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
+        const s = String(totalSecs % 60).padStart(2, '0');
         this.vaultTimerDisplay.textContent = `${h}:${m}:${s}`;
       }
-    }, 1000);
-    this.renderSystemMessage('✨ تم تفعيل موود 6 أيام! الشات المؤقت سيتدمر تلقائياً بعد 5 ساعات.');
+    };
+
+    updateCountdown();
+    this.vaultTimer = setInterval(updateCountdown, 1000);
+
+    if (!isRemote) {
+      this.renderSystemMessage('✨ تم تفعيل موود 6 أيام! الشات المؤقت سيتدمر تلقائياً بعد 5 ساعات.');
+    }
   }
 
   expire6DaysMode() {
     clearInterval(this.vaultTimer);
     this.is6DaysMode = false;
+    localStorage.removeItem('antika_6days_expiry');
     document.getElementById('main-app').classList.remove('mode-6days');
     this.secretBanner.style.display = 'none';
+
+    // Remove all 6-days messages from DOM and storage
     document.querySelectorAll('.msg-mode-6').forEach(el => el.remove());
+    if (this.activeContactId) {
+      const key = this._storageKey();
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      const filtered = saved.filter(m => !m.mode6);
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
     this.renderSystemMessage('🔒 انتهت فترة موود 6 أيام وتم حذف الرسائل المؤقتة.');
   }
 
@@ -504,12 +531,12 @@ class AntikaChatEngine {
       const dur = this._formatDuration(msg.duration || 0);
       bubble.innerHTML = `
         <div class="voice-bubble">
-          <button class="voice-play-btn" onclick="AntikaVoicePlayer.toggle(this, '${msg.media || ''}')">
+          <button class="voice-play-btn" onclick="AntikaVoicePlayer.toggle(this)">
             <i class="fa-solid fa-play"></i>
           </button>
           <div class="voice-body">
             <div class="voice-bars-wrap">
-              ${Array.from({length: 22}, (_, i) => {
+              ${Array.from({length: 20}, () => {
                 const h = 4 + Math.floor(Math.random() * 16);
                 return `<span class="vbar" style="height:${h}px"></span>`;
               }).join('')}
@@ -640,15 +667,49 @@ class AntikaChatEngine {
     }, 1000);
   }
 
+  /* ── Image Compression & Sending ───────────────────────── */
   handleImageSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    this._compressImage(file, 800, 0.7, (compressedBase64) => {
+      this.sendMessage(null, false, compressedBase64, this.isTimedImageSelected);
+    });
+    e.target.value = '';
+  }
+
+  _compressImage(file, maxDimension, quality, callback) {
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      this.sendMessage(null, false, ev.target.result, this.isTimedImageSelected);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        callback(dataUrl);
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   }
 
   checkInitialEmptyState() {
@@ -690,12 +751,17 @@ class AntikaChatEngine {
 class AntikaVoicePlayer {
   static _current = null;
 
-  static toggle(btn, src) {
-    if (!src || src === 'null') {
-      btn.closest('.message-bubble').querySelector('.voice-duration').textContent = '0:00';
-      return;
-    }
+  static toggle(btn) {
     const bubble = btn.closest('.message-bubble');
+    if (!bubble) return;
+
+    let rawData = {};
+    try {
+      rawData = JSON.parse(bubble.getAttribute('data-msg-raw') || '{}');
+    } catch(e) {}
+
+    const src = rawData.media;
+    if (!src) return;
 
     if (AntikaVoicePlayer._current?.bubble === bubble) {
       const audio = AntikaVoicePlayer._current.audio;
@@ -709,7 +775,6 @@ class AntikaVoicePlayer {
       return;
     }
 
-    // Stop previous
     if (AntikaVoicePlayer._current) {
       AntikaVoicePlayer._current.audio.pause();
       const prevBtn = AntikaVoicePlayer._current.bubble?.querySelector('.voice-play-btn i');
@@ -741,7 +806,8 @@ class AntikaVoicePlayer {
       AntikaVoicePlayer._current = null;
     });
 
-    audio.play().catch(() => {
+    audio.play().catch((err) => {
+      console.warn('Audio playback error:', err);
       btn.querySelector('i').className = 'fa-solid fa-play';
     });
   }
